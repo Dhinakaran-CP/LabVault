@@ -1,0 +1,44 @@
+databases:
+  - name: labvault-db
+    databaseName: labvault
+    user: labvault_app
+    plan: free
+    region: singapore
+
+services:
+  - type: web
+    name: labvault-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: labvault-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 30d
+      - key: CLIENT_ORIGIN
+        value: https://labvault-web.onrender.com
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_NAME
+        value: LabVault Administrator
+
+  - type: web
+    name: labvault-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://labvault-api.onrender.com/api
