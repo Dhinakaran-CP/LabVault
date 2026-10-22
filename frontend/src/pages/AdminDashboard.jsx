@@ -1,5 +1,5 @@
 import { BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, Tooltip } from "chart.js";
-import { Activity, Check, CirclePlus, Clock3, Cpu, PackageCheck, Pencil, RefreshCw, Save, X } from "lucide-react";
+import { Activity, Check, CirclePlus, Clock3, Cpu, KeyRound, PackageCheck, Pencil, RefreshCw, Save, UserPlus, UsersRound, X } from "lucide-react";
 import { Bar } from "react-chartjs-2";
 import { useEffect, useMemo, useState } from "react";
 import StatusBadge from "../components/StatusBadge";
@@ -26,13 +26,26 @@ export default function AdminDashboard() {
   const [equipmentForm, setEquipmentForm] = useState({ name: "", category: "", location: "", description: "" });
   const [editingEquipmentId, setEditingEquipmentId] = useState("");
   const [editEquipmentForm, setEditEquipmentForm] = useState({ name: "", category: "", description: "", location: "" });
+  const [students, setStudents] = useState([]);
+  const [admins, setAdmins] = useState([]);
+  const [registrationCode, setRegistrationCode] = useState("");
+  const [adminForm, setAdminForm] = useState({ name: "", email: "", password: "" });
+  const [savingAdmin, setSavingAdmin] = useState(false);
+  const [generatingCode, setGeneratingCode] = useState(false);
 
   const loadData = async () => {
     setError("");
     try {
-      const [bookingResponse, equipmentResponse] = await Promise.all([api.get("/bookings"), api.get("/equipment")]);
+      const [bookingResponse, equipmentResponse, studentResponse, adminResponse] = await Promise.all([
+        api.get("/bookings"),
+        api.get("/equipment"),
+        api.get("/admin/students"),
+        api.get("/admin/admins")
+      ]);
       setBookings(asArray(bookingResponse.data, "bookings"));
       setEquipment(asArray(equipmentResponse.data, "equipment"));
+      setStudents(asArray(studentResponse.data, "students"));
+      setAdmins(asArray(adminResponse.data, "admins"));
     } catch (err) {
       setError(getApiError(err, "We couldn't load the admin dashboard."));
     } finally {
@@ -143,6 +156,37 @@ export default function AdminDashboard() {
     }
   };
 
+  const createAdmin = async (event) => {
+    event.preventDefault();
+    setSavingAdmin(true);
+    setError("");
+    try {
+      await api.post("/admin/admins", adminForm);
+      setAdminForm({ name: "", email: "", password: "" });
+      setNotice("Administrator account created. Share the sign-in credentials securely.");
+      await loadData();
+    } catch (err) {
+      setError(getApiError(err, "Unable to create administrator account."));
+    } finally {
+      setSavingAdmin(false);
+    }
+  };
+
+  const generateRegistrationCode = async () => {
+    setGeneratingCode(true);
+    setError("");
+    setRegistrationCode("");
+    try {
+      const { data } = await api.post("/admin/registration-code");
+      setRegistrationCode(data.registrationCode);
+      setNotice("New student registration code created. The previous code is no longer valid.");
+    } catch (err) {
+      setError(getApiError(err, "Unable to create registration code."));
+    } finally {
+      setGeneratingCode(false);
+    }
+  };
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-xs font-bold uppercase tracking-[0.17em] text-indigo-600">Operations overview</p><h1 className="font-display mt-1 text-3xl font-extrabold tracking-tight text-slate-900">Admin dashboard</h1><p className="mt-2 text-sm text-slate-500">Manage requests, equipment, and access across your campus labs.</p></div><button onClick={loadData} className="inline-flex items-center justify-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 shadow-sm hover:bg-slate-50 sm:self-auto"><RefreshCw size={15} /> Refresh data</button></div>
@@ -153,6 +197,32 @@ export default function AdminDashboard() {
         <Metric label="Total bookings" value={loading ? "—" : bookings.length} detail="All submitted booking requests" icon={Activity} color="bg-indigo-50 text-indigo-700" />
         <Metric label="Active equipment" value={loading ? "—" : activeEquipment} detail={`${equipment.length} items in the catalog`} icon={Cpu} color="bg-cyan-50 text-cyan-700" />
         <Metric label="Pending requests" value={loading ? "—" : pending.length} detail={pending.length ? "Needs your review" : "All caught up"} icon={Clock3} color="bg-amber-50 text-amber-700" />
+      </section>
+
+      <section className="mt-5 grid gap-5 lg:grid-cols-2">
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"><UsersRound size={19} /></span><div><h2 className="font-display text-lg font-extrabold text-slate-900">Your students</h2><p className="text-sm text-slate-500">Only students registered with your code appear here.</p></div></div>
+          <div className="mt-4 max-h-52 space-y-2 overflow-y-auto">
+            {students.length ? students.map((student) => <div key={student.id} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2"><span className="truncate text-sm font-semibold text-slate-700">{student.name}</span><span className="truncate text-xs text-slate-500">{student.email}</span></div>) : <p className="rounded-lg bg-slate-50 px-3 py-4 text-sm text-slate-500">No students registered with your code yet.</p>}
+          </div>
+          <div className="mt-5 border-t border-slate-100 pt-4">
+            <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-bold text-slate-800">Student registration code</p><p className="mt-1 text-xs text-slate-500">Share this code with students. Creating a new one replaces the old code.</p></div><button disabled={generatingCode} onClick={generateRegistrationCode} className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"><span className="inline-flex items-center gap-1.5"><KeyRound size={14} />{generatingCode ? "Creating…" : "Generate code"}</span></button></div>
+            {registrationCode && <p className="mt-3 select-all rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 font-mono text-sm font-bold tracking-wider text-indigo-800">{registrationCode}</p>}
+          </div>
+        </article>
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700"><UserPlus size={19} /></span><div><h2 className="font-display text-lg font-extrabold text-slate-900">Administrators</h2><p className="text-sm text-slate-500">Administrators share equipment and manage separate student groups.</p></div></div>
+          <form onSubmit={createAdmin} className="mt-4 grid gap-2 sm:grid-cols-2">
+            <input required aria-label="Administrator name" placeholder="Full name" value={adminForm.name} onChange={(event) => setAdminForm({ ...adminForm, name: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+            <input required type="email" aria-label="Administrator email" placeholder="Email address" value={adminForm.email} onChange={(event) => setAdminForm({ ...adminForm, email: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+            <input required type="password" minLength={12} aria-label="Temporary administrator password" placeholder="Temporary password (12+ chars)" value={adminForm.password} onChange={(event) => setAdminForm({ ...adminForm, password: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 sm:col-span-2" />
+            <button disabled={savingAdmin} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-60 sm:col-span-2">{savingAdmin ? "Creating…" : "Create administrator"}</button>
+          </form>
+          <p className="mt-2 text-xs text-slate-500">Every administrator can create other administrator accounts. Share initial passwords securely.</p>
+          <div className="mt-4 max-h-36 space-y-2 overflow-y-auto border-t border-slate-100 pt-4">
+            {admins.map((admin) => <div key={admin.id} className="flex items-center justify-between gap-3 text-sm"><span className="truncate font-semibold text-slate-700">{admin.name}</span><span className="truncate text-xs text-slate-500">{admin.email}</span></div>)}
+          </div>
+        </article>
       </section>
 
       <section className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">

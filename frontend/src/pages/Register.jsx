@@ -1,4 +1,4 @@
-import { ArrowRight, FlaskConical, LockKeyhole, Mail, UserRound } from "lucide-react";
+import { ArrowRight, FlaskConical, KeyRound, LockKeyhole, Mail, UserRound } from "lucide-react";
 import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -7,7 +7,7 @@ import { getApiError } from "../lib/api";
 export default function Register() {
   const { register, user } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "student" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", adminCode: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   if (user) return <Navigate to={user.role === "admin" ? "/admin" : "/dashboard"} replace />;
@@ -15,14 +15,9 @@ export default function Register() {
   const submit = async (event) => {
     event.preventDefault();
     setError("");
-    if (form.role === "admin") {
-      setError("Administrator accounts are provisioned by the deployment owner. Contact your LabVault administrator for access.");
-      return;
-    }
     setBusy(true);
     try {
-      const { name, email, password } = form;
-      const account = await register({ name, email, password });
+      const account = await register(form);
       navigate(account.role === "admin" ? "/admin" : "/dashboard", { replace: true });
     } catch (err) {
       setError(getApiError(err, "Unable to create your account."));
@@ -54,7 +49,7 @@ export default function Register() {
             <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-700">Full name</span><span className="relative block"><UserRound className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input required autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Alex Morgan" className="w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50" /></span></label>
             <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-700">Email address</span><span className="relative block"><Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input type="email" required autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@university.edu" className="w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50" /></span></label>
             <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-700">Password</span><span className="relative block"><LockKeyhole className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input type="password" required minLength={8} autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="At least 8 characters" className="w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50" /></span><span className="mt-1.5 block text-xs text-slate-400">Use at least 8 characters.</span></label>
-            <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-700">Account type</span><select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"><option value="student">Student</option><option value="admin">Administrator</option></select><span className="mt-1.5 block text-xs text-slate-400">Administrator accounts are provisioned securely by the deployment owner.</span></label>
+            <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-700">Admin registration code</span><span className="relative block"><KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input required autoComplete="off" value={form.adminCode} onChange={(e) => setForm({ ...form, adminCode: e.target.value })} placeholder="Get this code from your administrator" className="w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50" /></span><span className="mt-1.5 block text-xs text-slate-400">This connects your account to the administrator who provided the code.</span></label>
             <button disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60">{busy ? "Creating account…" : "Create account"} {!busy && <ArrowRight size={17} />}</button>
           </form>
           <p className="mt-6 text-center text-sm text-slate-500">Already have an account? <Link className="font-bold text-indigo-600 hover:text-indigo-700" to="/login">Sign in</Link></p>

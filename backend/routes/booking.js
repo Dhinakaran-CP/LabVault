@@ -43,6 +43,7 @@ router.get('/', async (req, res, next) => {
     const bookings = await Booking.list({
       userId: req.user.id,
       isAdmin: req.user.role === 'admin',
+      adminId: req.user.id,
       status: req.query.status
     });
     return res.json({ bookings });

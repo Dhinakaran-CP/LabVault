@@ -69,10 +69,13 @@ async function create({ equipmentId, studentId, date, startTime, endTime, purpos
   }
 }
 
-async function list({ userId, isAdmin, status }) {
+async function list({ userId, isAdmin, adminId, status }) {
   const conditions = [];
   const values = [];
-  if (!isAdmin) {
+  if (isAdmin) {
+    values.push(adminId);
+    conditions.push(`s.admin_id = $${values.length}`);
+  } else {
     values.push(userId);
     conditions.push(`b.student_id = $${values.length}`);
   }
@@ -90,11 +93,15 @@ async function review({ bookingId, status, reviewerId }) {
   try {
     await client.query('BEGIN');
     const found = await client.query(
-      'SELECT id, equipment_id, booking_date, start_time, end_time, status FROM bookings WHERE id = $1 FOR UPDATE',
+      `SELECT b.id, b.equipment_id, b.booking_date, b.start_time, b.end_time, b.status,
+              s.admin_id AS student_admin_id
+       FROM bookings b
+       INNER JOIN users s ON s.id = b.student_id
+       WHERE b.id = $1 FOR UPDATE OF b`,
       [bookingId]
     );
     const booking = found.rows[0];
-    if (!booking) {
+    if (!booking || booking.student_admin_id !== reviewerId) {
       await client.query('ROLLBACK');
       return { missing: true };
     }
@@ -139,14 +146,25 @@ async function cancel({ bookingId, userId, isAdmin }) {
      SET status = 'cancelled', updated_at = NOW()
      WHERE id = $1
        AND status IN ('pending', 'approved')
-       AND ($3::boolean OR student_id = $2)
+       AND (
+         (NOT $3::boolean AND student_id = $2)
+         OR ($3::boolean AND EXISTS (
+           SELECT 1 FROM users s WHERE s.id = bookings.student_id AND s.admin_id = $2
+         ))
+       )
      RETURNING id`,
     [bookingId, userId, isAdmin]
   );
   if (!rows[0]) {
     const { rows: existing } = await db.query(
       `SELECT status FROM bookings
-       WHERE id = $1 AND ($3::boolean OR student_id = $2)`,
+       WHERE id = $1
+         AND (
+           (NOT $3::boolean AND student_id = $2)
+           OR ($3::boolean AND EXISTS (
+             SELECT 1 FROM users s WHERE s.id = bookings.student_id AND s.admin_id = $2
+           ))
+         )`,
       [bookingId, userId, isAdmin]
     );
     if (!existing[0]) return { missing: true };

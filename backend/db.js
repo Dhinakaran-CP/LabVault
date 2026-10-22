@@ -24,10 +24,16 @@ async function initializeDatabase() {
       email VARCHAR(254) NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       role VARCHAR(16) NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'admin')),
+      admin_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      registration_code_hash CHAR(64),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       CONSTRAINT users_email_format CHECK (email ~ '^[^[:space:]@]+@[^[:space:]@]+\\.[^[:space:]@]+$')
     );
+
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_id UUID REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS registration_code_hash CHAR(64);
+    CREATE INDEX IF NOT EXISTS users_admin_id_idx ON users (admin_id);
 
     CREATE TABLE IF NOT EXISTS equipment (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

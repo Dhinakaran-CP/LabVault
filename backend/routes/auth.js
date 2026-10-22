@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { createHash } = require('crypto');
 const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
 
@@ -16,13 +17,17 @@ function issueToken(user) {
 
 router.post('/register', async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Name, email, and password are required.' });
+    const { name, email, password, adminCode } = req.body;
+    if (!name || !email || !password || typeof adminCode !== 'string' || !adminCode.trim()) {
+      return res.status(400).json({ message: 'Name, email, password, and admin registration code are required.' });
     }
     if (typeof password !== 'string' || password.length < 8) {
       return res.status(400).json({ message: 'Password must be at least 8 characters.' });
     }
+
+    const codeHash = createHash('sha256').update(adminCode.trim().toLowerCase()).digest('hex');
+    const admin = await User.findAdminByRegistrationCodeHash(codeHash);
+    if (!admin) return res.status(400).json({ message: 'Invalid admin registration code.' });
 
     const normalizedEmail = String(email).trim().toLowerCase();
     const existing = await User.findByEmail(normalizedEmail);
@@ -33,6 +38,7 @@ router.post('/register', async (req, res, next) => {
       email: normalizedEmail,
       password: await bcrypt.hash(password, 12),
       role: 'student',
+      adminId: admin.id,
     });
     return res.status(201).json({
       token: issueToken(user),
