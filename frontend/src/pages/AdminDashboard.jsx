@@ -164,7 +164,13 @@ export default function AdminDashboard() {
       await api.post("/admin/admins", adminForm);
       setAdminForm({ name: "", email: "", password: "" });
       setNotice("Administrator account created. Share the sign-in credentials securely.");
-      await loadData();
+      setSavingAdmin(false);
+      try {
+        const { data } = await api.get("/admin/admins");
+        setAdmins(asArray(data, "admins"));
+      } catch (err) {
+        setError(getApiError(err, "Administrator created, but the administrator list could not be refreshed."));
+      }
     } catch (err) {
       setError(getApiError(err, "Unable to create administrator account."));
     } finally {
