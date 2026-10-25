@@ -29,7 +29,7 @@ async function create({ name, email, password, role = 'student', adminId }) {
 async function findAdminByRegistrationCodeHash(codeHash) {
   const { rows } = await db.query(
     `SELECT id, name FROM users
-     WHERE role = 'admin' AND registration_code_hash = $1`,
+     WHERE role IN ('admin', 'super_admin') AND registration_code_hash = $1`,
     [codeHash]
   );
   return rows[0] || null;
@@ -38,7 +38,7 @@ async function findAdminByRegistrationCodeHash(codeHash) {
 async function setRegistrationCodeHash(adminId, codeHash) {
   await db.query(
     `UPDATE users SET registration_code_hash = $2, updated_at = NOW()
-     WHERE id = $1 AND role = 'admin'`,
+     WHERE id = $1 AND role IN ('admin', 'super_admin')`,
     [adminId, codeHash]
   );
 }
@@ -62,14 +62,23 @@ async function listAdmins() {
   return rows;
 }
 
+async function listIncharges() {
+  const { rows } = await db.query(
+    `SELECT id, name, email, created_at AS "createdAt"
+     FROM users WHERE role = 'lab_incharge'
+     ORDER BY name, email`
+  );
+  return rows;
+}
+
 async function promoteAdmin({ name, email, password }) {
   const { rows } = await db.query(
     `INSERT INTO users (name, email, password_hash, role, admin_id, registration_code_hash)
-     VALUES ($1, $2, $3, 'admin', NULL, NULL)
+     VALUES ($1, $2, $3, 'super_admin', NULL, NULL)
      ON CONFLICT (email) DO UPDATE
        SET name = EXCLUDED.name,
            password_hash = EXCLUDED.password_hash,
-           role = 'admin',
+           role = 'super_admin',
            admin_id = NULL
      RETURNING id, name, email, role, admin_id AS "adminId"`,
     [name, email, password]
@@ -93,6 +102,7 @@ module.exports = {
   setRegistrationCodeHash,
   listStudents,
   listAdmins,
+  listIncharges,
   promoteAdmin,
   assignUnownedStudents
 };

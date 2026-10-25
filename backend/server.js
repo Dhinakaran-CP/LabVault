@@ -16,6 +16,7 @@ app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/labs', require('./routes/labs'));
 app.use('/api/equipment', require('./routes/equipment'));
 app.use('/api/bookings', require('./routes/booking'));
 

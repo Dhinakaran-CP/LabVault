@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "check": "node --check server.js && node --check db.js && node --check middleware/auth.js && node --check models/User.js && node --check models/Equipment.js && node --check models/Booking.js && node --check routes/auth.js && node --check routes/admin.js && node --check routes/equipment.js && node --check routes/booking.js"
+    "check": "node --check server.js && node --check db.js && node --check middleware/auth.js && node --check models/User.js && node --check models/Lab.js && node --check models/Equipment.js && node --check models/Booking.js && node --check routes/auth.js && node --check routes/admin.js && node --check routes/labs.js && node --check routes/equipment.js && node --check routes/booking.js"
   },
   "engines": {
     "node": ">=18"

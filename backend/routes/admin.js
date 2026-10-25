@@ -5,7 +5,7 @@ const User = require('../models/User');
 const { authenticate, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
-router.use(authenticate, requireRole('admin'));
+router.use(authenticate, requireRole('admin', 'super_admin'));
 
 router.get('/students', async (req, res, next) => {
   try {
@@ -27,12 +27,15 @@ router.get('/admins', async (req, res, next) => {
 
 router.post('/admins', async (req, res, next) => {
   try {
+    if (req.user.role !== 'super_admin') {
+      return res.status(403).json({ message: 'Only the main administrator can create mentor accounts.' });
+    }
     const { name, email, password } = req.body;
     if (typeof name !== 'string' || !name.trim() || typeof email !== 'string' || !email.trim() || typeof password !== 'string') {
       return res.status(400).json({ message: 'Name, email, and password are required.' });
     }
     if (password.length < 12) {
-      return res.status(400).json({ message: 'Administrator password must be at least 12 characters.' });
+      return res.status(400).json({ message: 'Mentor password must be at least 12 characters.' });
     }
 
     const normalizedEmail = email.trim().toLowerCase();

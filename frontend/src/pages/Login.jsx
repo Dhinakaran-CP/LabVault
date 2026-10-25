@@ -4,13 +4,19 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getApiError } from "../lib/api";
 
+function homeForRole(role) {
+  if (role === "lab_incharge") return "/incharge";
+  if (role === "admin" || role === "super_admin") return "/admin";
+  return "/dashboard";
+}
+
 export default function Login() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  if (user) return <Navigate to={user.role === "admin" ? "/admin" : "/dashboard"} replace />;
+  if (user) return <Navigate to={homeForRole(user.role)} replace />;
 
   const submit = async (event) => {
     event.preventDefault();
@@ -18,7 +24,7 @@ export default function Login() {
     setBusy(true);
     try {
       const account = await login(form);
-      navigate(account.role === "admin" ? "/admin" : "/dashboard", { replace: true });
+      navigate(homeForRole(account.role), { replace: true });
     } catch (err) {
       setError(getApiError(err, "Unable to sign in."));
     } finally {

@@ -6,7 +6,12 @@ import { useAuth } from "../context/AuthContext";
 export default function Navbar() {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const home = user?.role === "admin" ? "/admin" : "/dashboard";
+  const home = user?.role === "admin" || user?.role === "super_admin"
+    ? "/admin"
+    : user?.role === "lab_incharge" ? "/incharge" : "/dashboard";
+  const accountLabel = user?.role === "super_admin" ? "Main administrator"
+    : user?.role === "admin" ? "Mentor"
+      : user?.role === "lab_incharge" ? "Lab incharge" : "Student";
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
@@ -29,7 +34,7 @@ export default function Navbar() {
             <div className="flex items-center gap-3 border-t border-slate-100 pt-3 md:border-l md:border-t-0 md:pl-5 md:pt-0">
               <div className="hidden text-right sm:block">
                 <p className="max-w-40 truncate text-sm font-bold text-slate-800">{user.name}</p>
-                <p className="text-[11px] font-semibold capitalize text-slate-400">{user.role} account</p>
+                <p className="text-[11px] font-semibold text-slate-400">{accountLabel} account</p>
               </div>
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-sm font-bold uppercase text-indigo-700">{user.name?.charAt(0) || "U"}</span>
               <button onClick={logout} className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold text-slate-500 transition hover:bg-rose-50 hover:text-rose-600" title="Log out">
