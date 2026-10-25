@@ -152,7 +152,7 @@ export default function InchargeDashboard() {
               <input aria-label="Category" placeholder="Category" value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
               <input aria-label="Location" placeholder="Location" value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
             </div>
-            <label className="block text-sm font-semibold text-slate-700">Units in lab<input required aria-label="Quantity" type="number" min="0" step="1" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></label>
+            <label className="block text-sm font-semibold text-slate-700">Total units in lab<input required aria-label="Quantity" type="number" min="0" step="1" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></label>
             <textarea aria-label="Description" placeholder="Description" rows="3" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
             <button disabled={saving || !lab} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-50"><Plus size={16} />{saving ? "Adding…" : "Add to lab inventory"}</button>
           </form>
@@ -166,12 +166,12 @@ export default function InchargeDashboard() {
           {loading ? <p className="py-10 text-center text-sm text-slate-400">Loading requests…</p> : requests.length ? <div className="mt-4 space-y-3">
             {requests.map((booking) => <div key={booking._id} className="rounded-xl border border-slate-100 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div><p className="font-bold text-slate-800">{booking.equipment?.name}</p><p className="mt-1 text-sm text-slate-600">{booking.student?.name} · {booking.student?.email}</p><p className="mt-1 text-xs text-slate-500">{booking.date} · {booking.startTime}–{booking.endTime}</p><p className="mt-2 text-xs text-slate-500">Requested: {booking.purpose}</p></div>
+                <div><p className="font-bold text-slate-800">{booking.equipment?.name}</p><p className="mt-1 text-sm text-slate-600">{booking.student?.name} · {booking.student?.email}</p><p className="mt-1 text-xs font-semibold text-emerald-700">Stock: {booking.equipment?.availableQuantity ?? "—"} available of {booking.equipment?.quantity ?? "—"}</p><p className="mt-1 text-xs text-slate-500">{booking.date} · {booking.startTime}–{booking.endTime}</p><p className="mt-2 text-xs text-slate-500">Requested: {booking.purpose}</p></div>
                 <StatusBadge status={booking.status} />
               </div>
               <div className="mt-3 flex justify-end gap-2">
                 <button disabled={busyId === booking._id} onClick={() => decide(booking, "rejected")} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-600 disabled:opacity-50"><X size={14} /> Decline</button>
-                <button disabled={busyId === booking._id} onClick={() => decide(booking, "approved")} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><Check size={14} /> Allocate unit</button>
+                <button disabled={busyId === booking._id || booking.equipment?.availableQuantity === 0} onClick={() => decide(booking, "approved")} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><Check size={14} /> Allocate unit</button>
               </div>
             </div>)}
           </div> : <p className="py-10 text-center text-sm text-slate-400">No mentor-approved requests are waiting.</p>}
@@ -193,11 +193,12 @@ export default function InchargeDashboard() {
 
       <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <h2 className="font-display text-lg font-extrabold text-slate-900">Equipment and stock</h2>
-        <p className="mt-1 text-sm text-slate-500">Update the quantity or delete equipment assigned to your lab.</p>
+        <p className="mt-1 text-sm text-slate-500">Available stock updates automatically when equipment is allocated and returned.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {equipment.map((item) => <article key={item._id} className="rounded-xl border border-slate-100 p-4">
             <div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate font-bold text-slate-800">{item.name}</p><p className="mt-1 text-xs text-slate-500">{item.category} · {item.location}</p></div><PackageCheck size={18} className="shrink-0 text-indigo-600" /></div>
-            <div className="mt-3 flex items-end gap-2"><label className="flex-1 text-xs font-semibold text-slate-600">Units in lab<input aria-label={`${item.name} quantity`} type="number" min="0" step="1" defaultValue={item.quantity} onBlur={(event) => { if (event.target.value !== "" && Number(event.target.value) !== item.quantity) updateQuantity(item, event.target.value); }} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></label><button disabled={busyId === item._id} onClick={() => deleteEquipment(item)} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-600 disabled:opacity-50"><Trash2 size={13} /> Delete</button></div>
+            <p className="mt-3 text-xs font-semibold text-emerald-700">{item.availableQuantity ?? item.quantity} available · {item.quantity} total</p>
+            <div className="mt-2 flex items-end gap-2"><label className="flex-1 text-xs font-semibold text-slate-600">Total units in lab<input aria-label={`${item.name} total quantity`} type="number" min="0" step="1" defaultValue={item.quantity} onBlur={(event) => { if (event.target.value !== "" && Number(event.target.value) !== item.quantity) updateQuantity(item, event.target.value); }} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></label><button disabled={busyId === item._id} onClick={() => deleteEquipment(item)} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-600 disabled:opacity-50"><Trash2 size={13} /> Delete</button></div>
           </article>)}
           {!loading && !equipment.length && <p className="py-8 text-sm text-slate-400">No equipment has been added to this lab yet.</p>}
         </div>

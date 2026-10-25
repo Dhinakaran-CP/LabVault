@@ -6,6 +6,7 @@ const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
+const studentEmailPattern = /^[^@\s]+@ssn\.edu\.in$/i;
 
 function issueToken(user) {
   return jwt.sign(
@@ -30,6 +31,9 @@ router.post('/register', async (req, res, next) => {
     if (!admin) return res.status(400).json({ message: 'Invalid admin registration code.' });
 
     const normalizedEmail = String(email).trim().toLowerCase();
+    if (!studentEmailPattern.test(normalizedEmail)) {
+      return res.status(400).json({ message: 'Student email must end with @ssn.edu.in.' });
+    }
     const existing = await User.findByEmail(normalizedEmail);
     if (existing) return res.status(409).json({ message: 'An account with this email already exists.' });
 

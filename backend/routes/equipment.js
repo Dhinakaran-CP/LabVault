@@ -100,7 +100,7 @@ router.patch('/:id', ...equipmentManagers, async (req, res, next) => {
     }
     const equipment = await Equipment.update(req.params.id, changes);
     if (equipment?.conflict) {
-      return res.status(409).json({ message: 'Quantity cannot be lower than units already allocated for overlapping bookings.' });
+      return res.status(409).json({ message: 'Quantity cannot be lower than the units currently allocated to students.' });
     }
     if (equipment?.activeBookings) {
       return res.status(409).json({ message: 'Equipment cannot be moved while it has active requests or bookings.' });

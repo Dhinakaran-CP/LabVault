@@ -20,7 +20,12 @@ const bookingSelect = `
   jsonb_build_object(
     '_id', e.id, 'name', e.name, 'category', e.category, 'location', e.location,
     'imageUrl', e.image_url, 'labId', e.lab_id, 'labName', l.name,
-    'departmentName', d.name
+    'departmentName', d.name, 'quantity', e.quantity,
+    'availableQuantity', GREATEST(e.quantity - (
+      SELECT COUNT(*)::int FROM bookings allocated
+      WHERE allocated.equipment_id = e.id
+        AND allocated.status = 'approved' AND allocated.returned_at IS NULL
+    ), 0)::int
   ) AS equipment,
   jsonb_build_object('_id', s.id, 'name', s.name, 'email', s.email) AS student,
   CASE WHEN reviewer.id IS NULL THEN NULL ELSE
@@ -110,8 +115,7 @@ async function reviewMentor({ bookingId, status, reviewerId }) {
   try {
     await client.query('BEGIN');
     const found = await client.query(
-      `SELECT b.id, b.equipment_id, b.booking_date, b.start_time, b.end_time, b.status,
-              s.admin_id AS student_admin_id
+      `SELECT b.id, b.status, s.admin_id AS student_admin_id
        FROM bookings b
        INNER JOIN users s ON s.id = b.student_id
        WHERE b.id = $1 FOR UPDATE OF b`,
@@ -150,7 +154,7 @@ async function reviewIncharge({ bookingId, status, reviewerId }) {
   try {
     await client.query('BEGIN');
     const found = await client.query(
-      `SELECT b.id, b.equipment_id, b.booking_date, b.start_time, b.end_time, b.status
+      `SELECT b.id, b.equipment_id, b.status, b.mentor_reviewed_by
        FROM bookings b
        INNER JOIN equipment e ON e.id = b.equipment_id
        INNER JOIN labs l ON l.id = e.lab_id
@@ -163,7 +167,7 @@ async function reviewIncharge({ bookingId, status, reviewerId }) {
       await client.query('ROLLBACK');
       return { missing: true };
     }
-    if (booking.status !== 'pending_lab') {
+    if (booking.status !== 'pending_lab' || !booking.mentor_reviewed_by) {
       await client.query('ROLLBACK');
       return { notPending: true };
     }
@@ -175,10 +179,9 @@ async function reviewIncharge({ bookingId, status, reviewerId }) {
       );
       const allocated = await client.query(
         `SELECT COUNT(*)::int AS count FROM bookings
-         WHERE equipment_id = $1 AND booking_date = $2 AND id <> $3
-           AND status = 'approved' AND returned_at IS NULL
-           AND start_time < $5::time AND end_time > $4::time`,
-        [booking.equipment_id, booking.booking_date, booking.id, booking.start_time, booking.end_time]
+         WHERE equipment_id = $1 AND id <> $2
+           AND status = 'approved' AND returned_at IS NULL`,
+        [booking.equipment_id, booking.id]
       );
       if (!inventory.rows[0] || !inventory.rows[0].available
         || allocated.rows[0].count >= inventory.rows[0].quantity) {

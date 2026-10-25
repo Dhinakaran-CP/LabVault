@@ -8,7 +8,12 @@ const equipmentFrom = `FROM equipment e
   LEFT JOIN departments d ON d.id = l.department_id`;
 const equipmentColumns = `e.id AS "_id", e.name, e.description, e.category, e.location,
   e.image_url AS "imageUrl", e.quantity, e.lab_id AS "labId", l.name AS "labName",
-  d.name AS "departmentName", e.available, e.created_at AS "createdAt",
+  d.name AS "departmentName", e.available,
+  GREATEST(e.quantity - (
+    SELECT COUNT(*)::int FROM bookings b
+    WHERE b.equipment_id = e.id AND b.status = 'approved' AND b.returned_at IS NULL
+  ), 0)::int AS "availableQuantity",
+  e.created_at AS "createdAt",
   e.updated_at AS "updatedAt"`;
 
 async function list({ category, available, inchargeId } = {}) {
@@ -75,25 +80,11 @@ async function update(id, changes) {
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [id]);
     if (Object.prototype.hasOwnProperty.call(changes, 'quantity')) {
       const occupancy = await client.query(
-        `WITH events AS (
-           SELECT booking_date + start_time AS point, 1 AS delta
-           FROM bookings
-           WHERE equipment_id = $1 AND status = 'approved' AND returned_at IS NULL
-             AND booking_date + end_time > NOW()
-           UNION ALL
-           SELECT booking_date + end_time AS point, -1 AS delta
-           FROM bookings
-           WHERE equipment_id = $1 AND status = 'approved' AND returned_at IS NULL
-             AND booking_date + end_time > NOW()
-         ), changes AS (
-           SELECT point, SUM(delta) AS delta FROM events GROUP BY point
-         ), running AS (
-           SELECT SUM(delta) OVER (ORDER BY point) AS active FROM changes
-         )
-         SELECT COALESCE(MAX(active), 0)::int AS maximum FROM running`,
+        `SELECT COUNT(*)::int AS allocated FROM bookings
+         WHERE equipment_id = $1 AND status = 'approved' AND returned_at IS NULL`,
         [id]
       );
-      if (changes.quantity < occupancy.rows[0].maximum) {
+      if (changes.quantity < occupancy.rows[0].allocated) {
         await client.query('ROLLBACK');
         return { conflict: true };
       }
@@ -101,9 +92,10 @@ async function update(id, changes) {
     if (Object.prototype.hasOwnProperty.call(changes, 'labId')) {
       const active = await client.query(
         `SELECT 1 FROM bookings
-         WHERE equipment_id = $1 AND status IN ('pending_mentor', 'pending_lab', 'approved')
-           AND (status <> 'approved' OR returned_at IS NULL)
-           AND booking_date + end_time > NOW()
+         WHERE equipment_id = $1 AND (
+           (status IN ('pending_mentor', 'pending_lab') AND booking_date + end_time > NOW())
+           OR (status = 'approved' AND returned_at IS NULL)
+         )
          LIMIT 1`,
         [id]
       );
@@ -135,9 +127,10 @@ async function deleteIfUnused(id) {
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [id]);
     const active = await client.query(
       `SELECT 1 FROM bookings
-       WHERE equipment_id = $1 AND status IN ('pending_mentor', 'pending_lab', 'approved')
-         AND (status <> 'approved' OR returned_at IS NULL)
-         AND (booking_date + end_time) > NOW()
+       WHERE equipment_id = $1 AND (
+         (status IN ('pending_mentor', 'pending_lab') AND booking_date + end_time > NOW())
+         OR (status = 'approved' AND returned_at IS NULL)
+       )
        LIMIT 1`,
       [id]
     );

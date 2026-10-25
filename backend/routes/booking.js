@@ -5,7 +5,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const capacityMessage = 'No units are available for this time slot.';
+const capacityMessage = 'No equipment units are currently available.';
 
 router.use(authenticate);
 
